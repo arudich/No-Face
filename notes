@@ -1,0 +1,12 @@
+// figure out imports here to be able to place functions outside TrainedNN folder
+
+in a conda env:
+
+pip install tensorflow
+pip install flask
+pip install dlib
+pip install opencv
+pip install Pillow
+pip install pandas
+pip install sklearn
+pip install matplotlib
