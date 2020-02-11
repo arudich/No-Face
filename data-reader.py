@@ -42,7 +42,6 @@ class FaceData:
         
     def pull_images(self,data,ref_dict,batch_size=50):
         training = open("classifier_training_data.txt","w+")
-        validation = open("classifier_validation_data.txt","w+")
         model = m.create_model()
         model.load_weights('TrainedNN/open_face.h5')
         i = 0
@@ -77,11 +76,6 @@ class FaceData:
             #print(face_aligned.shape)
             #plt.show()
 
-
-            if i < len(data)*2.0/3.0:
-                filew = training
-            else:
-                filew = validation
             i += 1
 
             if i%batch_size == 0:
@@ -93,10 +87,10 @@ class FaceData:
                 # print("predictions")
                 # print(predictions)
                 for (enc,pred) in zip(batch_encodings,predictions):
-                    filew.write(str(enc) + "\t[")
+                    training.write(str(enc) + "\t[")
                     for i in range(len(pred)-1):
-                        filew.write(str(pred[i]) + ",")
-                    filew.write(str(pred[-1]) + "]\n")
+                        training.write(str(pred[i]) + ",")
+                    training.write(str(pred[-1]) + "]\n")
                     
                 batch_encodings = []
                 batch_images = []
@@ -108,16 +102,15 @@ class FaceData:
         if len(batch_images) > 0:
             predictions = model.predict(np.array(batch_images))
             for (enc,pred) in zip(batch_encodings,predictions):
-                validation.write(str(enc) + "\t[")
+                training.write(str(enc) + "\t[")
                 for i in range(len(pred)-1):
-                    validation.write(str(pred[i]) + ",")
-                validation.write(str(pred[-1]) + "]\n")
+                    training.write(str(pred[i]) + ",")
+                training.write(str(pred[-1]) + "]\n")
             batch_encodings = []
             batch_images = []
 
 
         training.close()
-        validation.close()
 
 
 
