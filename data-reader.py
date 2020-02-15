@@ -47,34 +47,27 @@ class FaceData:
         i = 0
         batch_encodings = []
         batch_images = []
+        alignment = Align.AlignDlib('TrainedNN/models/landmarks.dat')
         for (name,url) in data:
             img = self.url_to_image(url)
             if img is None:
                 continue
             img = cv2.cvtColor(img,cv2.COLOR_BGR2RGB)
-            alignment = Align.AlignDlib('TrainedNN/models/landmarks.dat')
-            face = alignment.getLargestFaceBoundingBox(img)
-            if face is None:
+            faces = alignment.getAllFaceBoundingBoxes(img)
+            #face = alignment.getLargestFaceBoundingBox(img)
+            if len(faces) != 1:
+                if len(faces) == 0:
+                    print("Not a face")
+                else:
+                    print("Too many faces")
                 continue
+            face = faces[0]
 
-            x = face.left()
-            y = face.top()
-            w = face.width()
-            h = face.height()
-            img1 = cv2.rectangle(img ,(x,y),(x+w,y+h),(255, 0, 0), 2)
-            # plt.subplot(131)
-            # plt.imshow(img)
-            # plt.subplot(132)
-            # plt.imshow(img1)
-            # plt.subplot(133)
-            crop_img = img1[y:y+h, x:x+w]
-
-            face_aligned = alignment.align(96, img, alignment.getLargestFaceBoundingBox(img), landmarkIndices=Align.AlignDlib.OUTER_EYES_AND_NOSE)
+            face_aligned = self.get_face_from_bounding_box(face,img,alignment)
+            
             if face_aligned is None:
                 continue
-            #plt.imshow(face_aligned)
-            #print(face_aligned.shape)
-            #plt.show()
+            
 
             i += 1
 
@@ -87,7 +80,10 @@ class FaceData:
                 # print("predictions")
                 # print(predictions)
                 for (enc,pred) in zip(batch_encodings,predictions):
-                    training.write(str(enc) + "\t[")
+                    training.write("[")
+                    for i in range(len(enc)-1):
+                        training.write(str(enc[i]) + ",")
+                    training.write(str(enc[-1]) + "]\t[")
                     for i in range(len(pred)-1):
                         training.write(str(pred[i]) + ",")
                     training.write(str(pred[-1]) + "]\n")
@@ -102,7 +98,10 @@ class FaceData:
         if len(batch_images) > 0:
             predictions = model.predict(np.array(batch_images))
             for (enc,pred) in zip(batch_encodings,predictions):
-                training.write(str(enc) + "\t[")
+                training.write("[")
+                for i in range(len(enc)-1):
+                    training.write(str(enc[i]) + ",")
+                training.write(str(enc[-1]) + "]\t[")
                 for i in range(len(pred)-1):
                     training.write(str(pred[i]) + ",")
                 training.write(str(pred[-1]) + "]\n")
@@ -112,7 +111,24 @@ class FaceData:
 
         training.close()
 
+    def get_face_from_bounding_box(self,face,img,alignment):
+        x = face.left()
+        y = face.top()
+        w = face.width()
+        h = face.height()
+        img1 = cv2.rectangle(img ,(x,y),(x+w,y+h),(255, 0, 0), 2)
+        # plt.subplot(131)
+        # plt.imshow(img)
+        # plt.subplot(132)
+        # plt.imshow(img1)
+        # plt.subplot(133)
+        crop_img = img1[y:y+h, x:x+w]
 
+        face_aligned = alignment.align(96, img, alignment.getLargestFaceBoundingBox(img), landmarkIndices=Align.AlignDlib.OUTER_EYES_AND_NOSE)
+        #plt.imshow(face_aligned)
+        #print(face_aligned.shape)
+        #plt.show()
+        return face_aligned
 
     def read_data(self):
         actor = open(self.actors_file,'r')
@@ -166,7 +182,7 @@ class FaceData:
             print(":(")
             return None
         # return the image
-        print("Success!")
+        print("Working URL!")
         return image
 
 if __name__ == '__main__':
