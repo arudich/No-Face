@@ -6,11 +6,14 @@ import keras.backend as K
 import keras.losses as losses
 import string
 import numpy as np
+import math
 
 class FaceClassifier:
     def __init__(self):
-        self.model = self.init_model()
-        self.train_model()
+        #self.model = self.init_model()
+        #self.train_model()
+        self.analyze_distances()
+        #self.analyze_OF_closeness()
 
     def load_model(self,save_dir = "models/",name = "model"):
         load_name = save_dir + name
@@ -53,7 +56,7 @@ class FaceClassifier:
             data = self.convert_str_to_list(contents[1])
             inputs.append(data)
             encodings.append(encoding)
-        training_size = int(len(encodings)*2/3)
+        training_size = int(len(encodings)*2/3) 
 
         train_input = np.array(inputs[0:training_size])
         train_enc = np.array(encodings[0:training_size])
@@ -62,7 +65,7 @@ class FaceClassifier:
         validation_enc = np.array(encodings[training_size:-1])
 
         acc = 0
-        while acc < .95:
+        while acc < .97:
             self.model.fit(x=train_input,y=train_enc,epochs=10)
             test_acc = self.model.evaluate(x=train_input,y=train_enc)
             acc = test_acc[1]
@@ -73,6 +76,108 @@ class FaceClassifier:
         print(out)
         self.save_model()
 
+    def analyze_OF_closeness(self,file = "classifier_training_data.txt"):
+        f = open(file,"r")
+        encodings = []
+        inputs = []
+        people = {}
+        while True:
+            line = f.readline()
+            if line == '': break
+            contents = line.split("\t")
+            encoding = self.convert_str_to_list(contents[0])
+            data = np.array(self.convert_str_to_list(contents[1]))
+            person = np.argmax(encoding)
+            l = people.get(person,[])
+            l.append(data)
+            people[person] = l
+
+        for key1,value1 in people.items():
+            for key2,value2 in people.items():
+                total_diff = 0
+                diffs = []
+                for inp1 in value1:
+                    for inp2 in value2:
+                        diffs.append(np.linalg.norm(inp1-inp2))
+                print("key1 = ",key1,"; key2 = ",key2)
+                print(np.mean(diffs))
+                print(np.std(diffs))
+                print("--------------------")
+
+
+    def analyze_distances(self, file = "classifier_training_data.txt"):
+        f = open(file,"r")
+        encodings = []
+        inputs = []
+        while True:
+            line = f.readline()
+            if line == '': break
+            contents = line.split("\t")
+            encoding = self.convert_str_to_list(contents[0])
+            data = self.convert_str_to_list(contents[1])
+            inputs.append(data)
+            encodings.append(encoding)
+
+        training_size = int(len(encodings)*2/3) 
+
+        train_input = np.array(inputs[0:training_size])
+        train_enc = np.array(encodings[0:training_size])
+
+        validation_input = np.array(inputs[training_size:-1])
+        validation_enc = np.array(encodings[training_size:-1])
+
+        correct = 0
+        confidence = 0
+        i = 0
+        for inp,enc in zip(validation_input,validation_enc):
+            means = self.smallest_mean(train_input,train_enc,inp,len(enc))
+
+            # num_neighbors = 100
+            # nearest_neighbors,_ = self.knn(train_input,train_enc,inp,num_neighbors)
+            # #print(nearest_neighbors)
+            # neighbor_probabilities = np.sum(nearest_neighbors,axis=0)/num_neighbors
+            # print(neighbor_probabilities)
+            choice = np.argmax(means)
+            print(choice)
+            if(enc[choice] == 1):
+                correct += 1
+                print("correct")
+            else: print("incorrect")
+            i+= 1
+            print(i)
+
+        print(correct)
+        print(confidence)
+        print(correct/len(validation_input))
+
+
+
+    def smallest_mean(self,train_inputs,train_encodings,test_input,num_people):
+        dists = []
+        for i in range(num_people):
+            dists.append([])
+        for inp,enc in zip(train_inputs,train_encodings):
+            dist = np.linalg.norm(inp-test_input)
+            dists[np.argmax(enc)].append(dist)
+
+        means = []
+        for d in dists:
+            means.append(np.mean(d))
+
+        return means
+
+    def knn(self,train_inputs,train_encodings,test_input,k):
+        nearest_dist = [math.inf] * k
+        nearest_name = [[]] * k
+
+        for inp,enc in zip(train_inputs,train_encodings):
+            dist = np.linalg.norm(inp-test_input)
+            max_dist_index = np.argmax(nearest_dist)
+            max_dist = nearest_dist[max_dist_index]
+            if max_dist > dist:
+                nearest_dist[max_dist_index] = dist
+                nearest_name[max_dist_index] = enc
+        return nearest_name,nearest_dist
 
 
     def convert_str_to_list(self,string):
