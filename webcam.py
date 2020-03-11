@@ -19,7 +19,7 @@ def take_photos(person, num):
         num (int): Number of photos to take
     """
 
-    webcam = cv2.VideoCapture(1)
+    webcam = cv2.VideoCapture(0)
 
     for i in range(num):
         try:

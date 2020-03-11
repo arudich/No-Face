@@ -7,12 +7,13 @@ import keras.losses as losses
 import string
 import numpy as np
 import math
+import random
 
 class FaceClassifier:
-    def __init__(self):
-        #self.model = self.init_model()
-        #self.train_model()
-        self.analyze_distances()
+    def __init__(self,num_people = 20):
+        self.model = self.init_model(num_people)
+        self.train_model()
+        #self.analyze_distances()
         #self.analyze_OF_closeness()
 
     def load_model(self,save_dir = "models/",name = "model"):
@@ -23,7 +24,7 @@ class FaceClassifier:
         save_name = save_dir + name
         self.model.save_weights(save_name)
 
-    def init_model(self):
+    def init_model(self,num_people):
         I = layers.Input(shape=(128,), name='classifier_input')
         h1 = layers.Dense(500, activation='relu', kernel_regularizer=l2(0.0001))(I)
         h2 = layers.BatchNormalization()(h1)
@@ -37,14 +38,14 @@ class FaceClassifier:
         # h7 = layers.Dense(150, activation='relu', kernel_regularizer=l2(0.0001))(d3)
         # h8 = layers.BatchNormalization()(h7)
         # d4 = layers.Dropout(.2)(h8)
-        O = layers.Dense(20, activation='softmax', kernel_regularizer=l2(0.0001))(d2)
+        O = layers.Dense(num_people, activation='softmax', kernel_regularizer=l2(0.0001))(d2)
         model = Model(inputs=I,outputs=O)
         model.compile("Adam",
             loss="categorical_crossentropy",
             metrics = ['accuracy'])
         return model
 
-    def train_model(self, file = "classifier_validation_data.txt"):
+    def train_model(self, file = "classifier_training_data.txt"):
         f = open(file,"r")
         encodings = []
         inputs = []
@@ -56,6 +57,12 @@ class FaceClassifier:
             data = self.convert_str_to_list(contents[1])
             inputs.append(data)
             encodings.append(encoding)
+
+        shuff = list(zip(encodings,inputs))
+        random.shuffle(shuff)
+        encodings,inputs = [[i for i,j in shuff],
+                            [j for i,j in shuff]]
+        
         training_size = int(len(encodings)*2/3) 
 
         train_input = np.array(inputs[0:training_size])
@@ -137,6 +144,7 @@ class FaceClassifier:
             # #print(nearest_neighbors)
             # neighbor_probabilities = np.sum(nearest_neighbors,axis=0)/num_neighbors
             # print(neighbor_probabilities)
+            print(means)
             choice = np.argmax(means)
             print(choice)
             if(enc[choice] == 1):
@@ -197,6 +205,6 @@ class FaceClassifier:
         pass
 
 if __name__ == '__main__':
-    FC = FaceClassifier()
+    FC = FaceClassifier(5)
 
     
