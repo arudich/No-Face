@@ -48,6 +48,20 @@ def get_landmarks(predictor_model, image_file):
         # Draw the landmarks on the screen
         win.add_overlay(landmarks)
 
+# assuming 1 face and will just resize the image to 500 pixels wide
+# returns all the points found on a face
+def get_default_landmarks(image):
+    face_detector = dlib.get_frontal_face_detector()
+    landmark_predictor = dlib.shape_predictor(shape_predictor_68_landmarks.dat)
+
+    image = imutils.resize(image, width=500)
+
+    detected_faces = face_detector(image, 1)
+
+    landmarks = landmark_predictor(image, detected_faces[0])
+    # Convert landmarks to numpy array
+    landmarks_arr = face_utils.shape_to_np(landmarks)
+    return landmarks_arr
 
 def main():
     predictor_model = sys.argv[1]
