@@ -8,17 +8,24 @@ import string
 import numpy as np
 import math
 import random
+import os
 
-class FaceClassifier:
-    def __init__(self,num_people = 20):
+class FaceClassifierTrainer:
+    def __init__(self,num_people = 0):
+        self.img_dir = "./images"
+        if(num_people == 0):
+            num_people = self.count_people()
+            print("Counted ", num_people, " people")
+            input("If this is right, press enter. Otherwise cntrl-c outta here")
+
         self.model = self.init_model(num_people)
-        self.train_model()
+        self.train_model(num_people)
         #self.analyze_distances()
         #self.analyze_OF_closeness()
 
-    def load_model(self,save_dir = "models/",name = "model"):
+    def load_model(self,model,save_dir = "models/",name = "classifier_model"):
         load_name = save_dir + name
-        self.model.load_weights(load_name)
+        model.load_weights(load_name)
 
     def save_model(self,save_dir = "models/",name="classifier_model"):
         save_name = save_dir + name
@@ -45,7 +52,7 @@ class FaceClassifier:
             metrics = ['accuracy'])
         return model
 
-    def train_model(self, file = "classifier_training_data.txt"):
+    def train_model(self, num_people, file = "classifier_validation_data.txt"):
         f = open(file,"r")
         encodings = []
         inputs = []
@@ -53,15 +60,18 @@ class FaceClassifier:
             line = f.readline()
             if line == '': break
             contents = line.split("\t")
-            encoding = self.convert_str_to_list(contents[0])
+            encoding = int(contents[0])
+            tmp = np.zeros(num_people)
+            tmp[encoding] = 1
+            encoding = tmp #convert index to one-hot encoding
             data = self.convert_str_to_list(contents[1])
             inputs.append(data)
             encodings.append(encoding)
 
         shuff = list(zip(encodings,inputs))
         random.shuffle(shuff)
-        encodings,inputs = [[i for i,j in shuff],
-                            [j for i,j in shuff]]
+        encodings,inputs = [np.array([i for i,j in shuff]),
+                            np.array([j for i,j in shuff])]
         
         training_size = int(len(encodings)*2/3) 
 
@@ -198,13 +208,24 @@ class FaceClassifier:
                 ret.append(0.)
             else:
                 ret.append(float(f))
-        return ret
+        return np.array(ret)
 
+    def count_people(self):
+        num = 0
+        print("Listing people:")
+        for directory in os.listdir(self.img_dir):
+            if(directory[0] == '.'):
+                continue
+            if(directory == "image_key.txt"):
+                continue
+            print(directory)
+            num += 1
+        return num
 
     def classify(self,data):
         pass
 
 if __name__ == '__main__':
-    FC = FaceClassifier(5)
+    FC = FaceClassifierTrainer() #defaults to counting the number of people who have directories
 
     
