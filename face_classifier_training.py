@@ -18,7 +18,7 @@ class FaceClassifierTrainer:
             print("Counted ", num_people, " people")
             input("If this is right, press enter. Otherwise cntrl-c outta here")
 
-        self.model = self.init_model(num_people)
+        self.model = self.init_model_eager(num_people)
         self.train_model(num_people)
         #self.analyze_distances()
         #self.analyze_OF_closeness()
@@ -32,6 +32,29 @@ class FaceClassifierTrainer:
         self.model.save_weights(save_name)
 
     def init_model(self,num_people):
+        tf.compat.v1.disable_eager_execution()
+        I = layers.Input(shape=(128,), name='classifier_input')
+        h1 = layers.Dense(500, activation='relu', kernel_regularizer=l2(0.0001))(I)
+        h2 = layers.BatchNormalization()(h1)
+        d1 = layers.Dropout(.2)(h2)
+        h3 = layers.Dense(500, activation='relu', kernel_regularizer=l2(0.0001))(d1)
+        h4 = layers.BatchNormalization()(h3)
+        d2 = layers.Dropout(.2)(h4)
+        # h5 = layers.Dense(150, activation='relu', kernel_regularizer=l2(0.0001))(d2)
+        # h6 = layers.BatchNormalization()(h5)
+        # d3 = layers.Dropout(.2)(h6)
+        # h7 = layers.Dense(150, activation='relu', kernel_regularizer=l2(0.0001))(d3)
+        # h8 = layers.BatchNormalization()(h7)
+        # d4 = layers.Dropout(.2)(h8)
+        O = layers.Dense(num_people, activation='softmax', kernel_regularizer=l2(0.0001))(d2)
+        model = Model(inputs=I,outputs=O)
+        model.compile("Adam",
+            loss="categorical_crossentropy",
+            metrics = ['accuracy'])
+
+        return model
+
+    def init_model_eager(self,num_people):
         I = layers.Input(shape=(128,), name='classifier_input')
         h1 = layers.Dense(500, activation='relu', kernel_regularizer=l2(0.0001))(I)
         h2 = layers.BatchNormalization()(h1)
