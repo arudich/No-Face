@@ -1,0 +1,3 @@
+[submodule "TrainedNN2"]
+	path = TrainedNN2
+	url = https://github.com/cmusatyalab/openface.git
