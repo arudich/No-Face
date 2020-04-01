@@ -1,3 +1,6 @@
 [submodule "TrainedNN2"]
 	path = TrainedNN2
 	url = https://github.com/cmusatyalab/openface.git
+[submodule "TrainedNN"]
+	path = TrainedNN
+	url = https://github.com/krsatyam1996/Face-recognition-and-identification.git
