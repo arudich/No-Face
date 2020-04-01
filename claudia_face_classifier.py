@@ -34,10 +34,10 @@ class FaceClassifier(FaceClassifierTrainer):
         else: self.num_people = num_people
         self.classifier = self.init_model(self.num_people)
         self.OF = m.create_model()
-        self.ANN = self.init_ANN_arch(arch_num)
+        #self.ANN = self.init_ANN_arch(arch_num)
         self.person_dict = self.read_person_dict()
 
-        self.init_classifier_gradients()
+        '''self.init_classifier_gradients()
 
         self.Adam = tf.compat.v1.train.AdamOptimizer(learning_rate = .001)
         self.update = self.Adam.apply_gradients(zip(self.ANN_trainer,self.ANN.trainable_weights))
@@ -47,7 +47,7 @@ class FaceClassifier(FaceClassifierTrainer):
         self.sess = tf.compat.v1.Session()
         init = tf.compat.v1.global_variables_initializer()
         self.sess.run(init)
-        tf.compat.v1.keras.backend.set_session(self.sess)
+        tf.compat.v1.keras.backend.set_session(self.sess)'''
 
         self.load_models()
 

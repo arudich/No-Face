@@ -51,8 +51,6 @@ class FaceClassifier(FaceClassifierTrainer):
 
         self.load_models()
 
-        '''
-
         img = self.bound_img('./images/avi/avi_0.JPG')
         imgs = np.array([img])
 
@@ -86,7 +84,6 @@ class FaceClassifier(FaceClassifierTrainer):
         plt.imshow(cv2.cvtColor((self.ANN_predict_img(img))/255.0, cv2.COLOR_BGR2RGB))
         
         plt.show()
-        '''
 
 
 
