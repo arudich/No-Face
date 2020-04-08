@@ -25,8 +25,10 @@ import TrainedNN.utils as utils
 import matplotlib.pyplot as plt
 
 class FaceClassifier(FaceClassifierTrainer):
-    def __init__(self,num_people = 0,arch_num = 1):
+    def __init__(self,num_people = 0,arch_num = 1, num_pictures = 110):
         self.img_dir = "./images"
+        self.num_pictures = 110
+        self.arch_num = arch_num
         if(num_people == 0):
             self.num_people = self.count_people()
             print("Counted ", self.num_people, " people")
@@ -41,51 +43,145 @@ class FaceClassifier(FaceClassifierTrainer):
 
         self.Adam = tf.compat.v1.train.AdamOptimizer(learning_rate = .001)
         self.update = self.Adam.apply_gradients(zip(self.ANN_trainer,self.ANN.trainable_weights))
-        #self.Adam_2 = tf.compat.v1.train.AdamOptimizer(learning_rate = .00025)
-        #self.update_2 = self.Adam_2.apply_gradients(zip(self.proj_grads,self.ANN.trainable_weights))
 
         self.sess = tf.compat.v1.Session()
         init = tf.compat.v1.global_variables_initializer()
         self.sess.run(init)
         tf.compat.v1.keras.backend.set_session(self.sess)
 
-        self.load_models()
+        self.load_model(self.classifier)
+        self.OF.load_weights('TrainedNN/open_face.h5')
+        #self.load_all_models()
 
-        img = self.bound_img('./images/avi/avi_0.JPG')
-        imgs = np.array([img])
+        self.load_ANN_model(name="ANN_Arch_"+str(arch_num) + "_Epoch_" + str(20))
+        self.test_ANN()
+        #self.train_ANN()
+        #self.save_ANN_model(name="ANN_Arch_"+str(self.arch_num))
 
-        yTrue = np.zeros(self.num_people)
-        yTrue[2] = 1
-        yTrue = np.array([yTrue])
 
-        feed_dict = {}
-        self.forward_pass(imgs,yTrue,feed_dict)
+    def ANN_train_on_batch(self,indeces,batch_size=32):
+        print("Starting Training Episode")
+        batch_sample_indeces = random.sample(indeces,batch_size)
+        batch_imgs = []
+        batch_truth = []
+        for (person,pic_num) in batch_sample_indeces:
+            person_key = self.person_dict[person]
+            img_path = self.img_dir+"/"+person_key+"/"+person_key+"_"+str(pic_num)+".jpg"
+            img = self.bound_img(img_path)
+            if img is None:
+                continue
 
-        for i in range(10):
-            feed_dict = {}
-            self.forward_pass(imgs,yTrue,feed_dict)
-            self.sess.run(self.update,feed_dict=feed_dict)
-            print("Loss: ")
-            self.sess.run(tf.print(self.loss),feed_dict=feed_dict)
-            print("Norm: ")
-            self.sess.run(tf.print(self.proj_size),feed_dict=feed_dict)
-            #self.sess.run(self.update_2,feed_dict=feed_dict)
+            yTrue = np.zeros(self.num_people)
+            yTrue[person] = 1.0
+            batch_imgs.append(img)
+            batch_truth.append(yTrue)
 
-        plt.subplot(1,3,1)
-        plt.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
-        plt.subplot(1,3,2)
-        plt.imshow(cv2.cvtColor((img+self.ANN_predict_img(img))/255.0, cv2.COLOR_BGR2RGB))
-        #print(img+self.ANN_predict_img(img))
-        pred = self.predict_bounded_face(img+self.ANN_predict_img(img))
-        classification = self.identify_pred(pred)
-        print(pred)
-        print(classification)
-        plt.subplot(1,3,3)
-        plt.imshow(cv2.cvtColor((self.ANN_predict_img(img))/255.0, cv2.COLOR_BGR2RGB))
+        batch_imgs = np.array(batch_imgs)
+        batch_truth = np.array(batch_truth)
+
+        if(np.size(batch_imgs) == 0):
+            print("All sampled picture invalid")
+            return
+
+        print("Running Forward Pass")
+        feed_dict = self.forward_pass(batch_imgs,batch_truth)
+        print("Updating")
+        self.sess.run(self.update,feed_dict=feed_dict)
+        #print("Loss: ")
+        #self.sess.run(tf.print(self.loss),feed_dict=feed_dict)
+        #print("Norm: ")
+        #self.sess.run(tf.print(self.proj_size),feed_dict=feed_dict)
+
+
+    def train_ANN(self):
+        training_indeces = []
+        test_index = int(self.num_pictures*2/3)
+
+        for i in range(self.num_people):
+            for j in range(test_index):
+                training_indeces.append((i,j))
+
+        for i in range(50):
+            self.ANN_train_on_batch(training_indeces,batch_size=32)
+            if(i%10 == 0):
+                self.save_ANN_model(name="ANN_Arch_"+str(self.arch_num) + "_Epoch_" + str(i))
         
+
+
+    def test_ANN(self,test_size=100):
+        test_indeces = []
+        test_index = int(self.num_pictures*2/3)
+
+        for i in range(self.num_people):
+            for j in range(test_index):
+                test_indeces.append((i,j))
+
+        batch_sample_indeces = random.sample(test_indeces,test_size)
+
+        truths = []
+        imgs = []
+        observed_test_size = 0
+        for (person,pic_num) in batch_sample_indeces:
+            person_key = self.person_dict[person]
+            img_path = self.img_dir+"/"+person_key+"/"+person_key+"_"+str(pic_num)+".jpg"
+            img = self.bound_img(img_path)
+            if img is None:
+                continue
+            observed_test_size += 1
+            imgs.append(img)
+            truths.append(person_key)
+
+        imgs = np.array(imgs)
+        projs = self.ANN.predict(imgs)
+
+        OF_classifier_outs = self.OF.predict(imgs)
+        classifier_preds = self.classifier.predict(OF_classifier_outs)
+
+        OF_ANN_outs = self.OF.predict(imgs+projs)
+        ANN_preds = self.classifier.predict(OF_ANN_outs)
+
+        classifications = [self.person_dict[np.argmax(pred)] for pred in classifier_preds]
+        ANN_classifications = [self.person_dict[np.argmax(pred)] for pred in ANN_preds]
+
+        classification_acc = np.sum([a == b for (a,b) in zip(truths,classifications)])/observed_test_size
+        ANN_acc = np.sum([a == b for (a,b) in zip(truths,ANN_classifications)])/observed_test_size
+        print(classifications)
+        print(ANN_classifications)
+        print(truths)
+        print("Classification Accuracy: ",classification_acc)
+        print("Attacked Classification Accuracy: ", ANN_acc)
+
+        '''
+        for (person,pic_num) in batch_sample_indeces:
+            person_key = self.person_dict[person]
+            img_path = self.img_dir+"/"+person_key+"/"+person_key+"_"+str(pic_num)+".jpg"
+            img = self.bound_img(img_path)
+            if img is None:
+                continue
+            pred = self.predict_bounded_face(img)
+            classification = self.identify_pred(pred)
+            projection = self.ANN.predict(np.array([img]))[0]
+
+            full_img = img + projection
+            pred = self.predict_bounded_face(full_img)
+            ANN_class = self.identify_pred(pred)
+            self.show_pictures([img,projection,full_img],classification,ANN_class)
+            '''
+
+    def show_pictures(self,imgs,classification,ANN_class,div=True):
+        num_imgs = len(imgs)
+        for i in range(num_imgs):
+            plt.subplot(1,num_imgs,i+1)
+            img = imgs[i]
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            img = img/255.0 if div else img
+            #print(img)
+            #print(np.shape(img))
+            plt.imshow(img)
+            if(i == 0):
+                plt.title(classification)
+        plt.title(ANN_class)
         plt.show()
-
-
 
     def init_classifier_gradients(self):
         self.img = tf.compat.v1.placeholder(tf.float32,shape=(None,96,96,3))
@@ -106,12 +202,10 @@ class FaceClassifier(FaceClassifierTrainer):
         self.ANN_trainer = tf.gradients(self.ANN.output,self.ANN.trainable_weights,grad_ys=self.grad_sum)
 
 
-    def forward_pass(self,imgs,yTrue,feed_dict): 
-        assert(np.shape(yTrue) == (1,self.num_people))
-        assert(np.shape(imgs) == (1,96,96,3))
+    def forward_pass(self,imgs,yTrue): 
         #fills feed_dict for training step
         #returns projection_grads for training ANN
-        #feed_dict = {}
+        feed_dict = {}
         feed_dict[self.ANN.input] = imgs
         projection = self.ANN_predict_imgs(imgs)
 
@@ -127,12 +221,14 @@ class FaceClassifier(FaceClassifierTrainer):
 
         return feed_dict
 
-    def load_models(self):
+    def load_all_models(self):
         self.load_model(self.classifier)
         self.OF.load_weights('TrainedNN/open_face.h5')
+        self.load_ANN_model()
 
     def predict_face_from_cam(self,img_path):
         img = self.bound_img(img_path)
+        if img is None: return None,"Could not find face"
         pred = self.predict_bounded_face(img)
         print("Prediction: " + str(pred))
         classification = self.identify_pred(pred)
@@ -195,6 +291,8 @@ class FaceClassifier(FaceClassifierTrainer):
     def init_ANN_arch(self,arch_num):
         if arch_num == 1:
             return self.ANN_arch_1()
+        elif arch_num == 2:
+            return self.ANN_arch_2()
         else:
             print("No architecture with that number...using architecture 1")
             return self.ANN_arch_1()
@@ -204,6 +302,23 @@ class FaceClassifier(FaceClassifierTrainer):
 
     def ANN_predict_img(self,img):
         return self.ANN.predict(np.array([img]))[0]
+
+    def ANN_arch_2(self):
+        dims = 96*96*3
+        myInput = Input(shape=(96, 96, 3))
+
+        f = Flatten()(myInput)
+        d = layers.Dense(3000, activation='relu', kernel_regularizer=l2(0.0001))(f)
+        d = layers.Dense(3000, activation='relu', kernel_regularizer=l2(0.0001))(d)
+        d = layers.Dense(3000, activation='relu', kernel_regularizer=l2(0.0001))(d)
+        d = layers.Dense(10000, activation='relu', kernel_regularizer=l2(0.0001))(d)
+        d = layers.Dense(dims, activation='relu', kernel_regularizer=l2(0.0001))(d)
+        O = layers.Reshape((96,96,3))(d)
+
+        model = Model(inputs=myInput,outputs=O)
+        # model.compile("Adam",
+        #     loss=self.custom_loss_function)
+        return model
 
     def ANN_arch_1(self):
         #print("Architecture 1 init:")
@@ -284,6 +399,17 @@ class FaceClassifier(FaceClassifierTrainer):
         #     loss=self.custom_loss_function)
         return model
 
+    def save_ANN_model(self,save_dir = "models/",name="ANN_model"):
+        save_name = save_dir + name
+        self.ANN.save_weights(save_name)
+
+    def load_ANN_model(self, load_dir = "models/",name="ANN_model"):
+        load_name = load_dir + name
+        self.ANN.load_weights(load_name)
+
 if __name__ == '__main__':
-    FC = FaceClassifier()
+    FC = FaceClassifier(arch_num=1)
+    #FC.train_ANN()
+    #FC.test_ANN()
+    #FC.save_ANN_model()
     #FC.predict_face_from_cam('./images/avi/avi_0.JPG')
