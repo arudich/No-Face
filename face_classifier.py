@@ -59,6 +59,9 @@ class FaceClassifier(FaceClassifierTrainer):
         #self.save_ANN_model(name="ANN_Arch_"+str(self.arch_num))
 
 
+    def predict_projection(self,img):
+        return self.ANN.predict(np.array([img]))[0]
+
     def ANN_train_on_batch(self,indeces,batch_size=32):
         print("Starting Training Episode")
         batch_sample_indeces = random.sample(indeces,batch_size)
