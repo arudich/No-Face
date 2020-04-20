@@ -32,14 +32,14 @@ FACIAL_LANDMARKS_IDXS = OrderedDict([
 COLORS = [(128, 84, 231)]
 
 
-def get_landmarks(image_file):
+def get_landmarks(image):
     """ Gets array of facial landmarks
     """
 
     face_detector = dlib.get_frontal_face_detector()
     landmark_predictor = dlib.shape_predictor('shape_predictor_68_face_landmarks.dat')
 
-    image = cv2.imread(image_file)
+    # image = cv2.imread(image_file)
     # image = imutils.resize(image, width=500)
 
     detected_faces = face_detector(image, 1)
@@ -48,7 +48,7 @@ def get_landmarks(image_file):
     # Convert landmarks to numpy array
     landmarks_arr = face_utils.shape_to_np(landmarks)
 
-    return landmarks_arr, image
+    return landmarks_arr
 
 
 def add_color(image, landmarks_arr, feature):
@@ -73,7 +73,9 @@ def main():
     output_file = sys.argv[2]
     facial_feature = sys.argv[3]
 
-    landmarks_arr, image = get_landmarks(image_file)
+    image = cv2.imread(image_file)
+
+    landmarks_arr = get_landmarks(image)
 
     # Choose modification
     output = add_color(image, landmarks_arr, facial_feature)
