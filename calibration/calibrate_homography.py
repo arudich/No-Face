@@ -22,11 +22,11 @@ checker_cols = 6
 objp = np.zeros((checker_rows*checker_cols,3), np.float32)
 objp[:,:2] = np.mgrid[0:checker_cols,0:checker_rows].T.reshape(-1,2)
 
+print(objp)
+
 objp = objp * 30
 # = objp + (5,5,0)
 
-print("objp")
-print(objp)
 
 objpoints = [] # 3d point in real world space
 imgpoints = [] # 2d points in image plane.
