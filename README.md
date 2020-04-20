@@ -1,4 +1,11 @@
 # No-Face
 
-Imports you need before this will work:
+Set Up
+------
+1. Install requirements
+```
+pip install -r requirements.txt --upgrade
+```
 
+Usage
+------
